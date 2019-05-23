@@ -1,0 +1,20 @@
+Program Test;
+{ 这是一个计算从 0 到 100 累加求和的程序 }
+
+Var
+    n   : Integer;
+    i   : Integer;
+    sum : Integer;
+
+Begin
+    n   := 100;
+    i   := 0;
+    sum := 0;
+
+    While i <= n Do
+    Begin
+        sum := sum + i;
+        i   := i + 1
+    End
+
+End.
