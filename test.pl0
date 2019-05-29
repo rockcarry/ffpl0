@@ -5,9 +5,12 @@ Var
     n   : Integer;
     i   : Integer;
     sum : Integer;
+    a, b: Integer;
+    f   : Integer;
+    ff  : Real;
 
 Begin
-    n   := 100;
+    n   := 100 + 0.1;
     i   := 0;
     sum := 0;
 
@@ -15,6 +18,13 @@ Begin
     Begin
         sum := sum + i;
         i   := i + 1
-    End
+    End;
 
+    a   := 2;
+    b   := 200;
+    f   := -1;
+    If a = b Then f := 1
+    Else f := 0
 End.
+
+

@@ -40,17 +40,17 @@ iden    {letter}{alnum}*
 [Pp][Rr][Ii][Nn][Tt]          { return TK_PRINT;   }  /* Print   */
 [Ii][Nn][Pp][Uu][Tt]          { return TK_INPUT;   }  /* Input   */
 
-           /* 识别标识符 */
-{iden}     { return TK_IDEN;    }
+                /* 识别标识符 */
+{iden}          { return TK_IDEN;    }
 
-           /* 识别整型数 */
-{D}+       { return TK_INTNUM;  } 
+                /* 识别整型数 */
+[+-]*{D}+       { return TK_INTNUM;  }
 
-           /* 识别实型数 */
-{D}*\.{D}+ { return TK_REALNUM; }
+                /* 识别实型数 */
+[+-]*{D}*\.{D}+ { return TK_REALNUM; }
 
-           /* 识别空白字符 */
-{white}+   { }
+                /* 识别空白字符 */
+{white}+        { }
 
       /* 以下是识别运算符 */
 "+"   { return '+';      }
