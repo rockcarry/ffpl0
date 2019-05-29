@@ -10,7 +10,7 @@ Var
     ff  : Real;
 
 Begin
-    n   := 100 + 0.1;
+    Input n;
     i   := 0;
     sum := 0;
 
@@ -24,7 +24,10 @@ Begin
     b   := 200;
     f   := -1;
     If a = b Then f := 1
-    Else f := 0
+    Else f := 0;
+
+    Print sum;
+    Print f
 End.
 
 

@@ -72,6 +72,11 @@ enum {
     OP_ASIGNR,  /* 赋值，实数到内存 */
     OP_ASIGNM,  /* 赋值，内存到内存 */
 
+    OP_IPRT  ,
+    OP_RPRT  ,
+    OP_IIPT  ,
+    OP_RIPT  ,
+
     OP_JMP   ,
     OP_IJL   ,
     OP_IJLE  ,
@@ -277,14 +282,23 @@ AsignStatement  :   Variable TK_ASIGN AExpr
                     }
                 ;
 
-StatementList   :   Statement {}
-                |   StatementList ';' Statement {}
-                ;
-
-Statement       :   AsignStatement { tmpvar_reset(); }
-                |   IfStatement    { fix_jmp_addr($1.tc, NXQ); fix_jmp_addr($1.fc, NXQ); }
-                |   WhileStatement {}
-                |   ComStatement   {}
+IOStatement     : TK_INPUT Variable
+                {
+                    int v = lookup_var($2);
+                    if (v == 0) printf("undefined variable: %s !\r\n", $2);
+                    GEN(g_vlist[v].type == AEXPRT_INTEGER ? OP_IIPT : OP_RIPT, v, 0, 0);
+                }
+                | TK_PRINT AExpr
+                {
+                    if ($2.isvar) {
+                        GEN($2.type == AEXPRT_INTEGER ? OP_IPRT : OP_RPRT, $2.v.vidx, 0, 0);
+                    } else {
+                        int t = tmpvar_pop($2.type);
+                        GEN($2.type == AEXPRT_INTEGER ? OP_ASIGNI : OP_ASIGNR, t, $2.v.ival, 0);
+                        GEN($2.type == AEXPRT_INTEGER ? OP_IPRT : OP_RPRT, t, 0, 0);
+                        if (t) tmpvar_push();
+                    }
+                }
                 ;
 
 IfStatement     :   Condition Statement  { $$ = $1; }
@@ -316,14 +330,33 @@ WHILE           :   TK_WHILE { $$.loop = NXQ; }
 WED             :   WHILE BExpr TK_DO { $$.loop = $1.loop; $$.fc = $2.fc;}
                 ;
 
-ComStatement    :   TK_BEGIN Series TK_END {}
+SeriesSem       :   Series ';' {}
                 ;
 
 Series          :   Statement {}
                 |   SeriesSem Statement {}
                 ;
 
-SeriesSem       :   Series ';' {}
+ComStatement    :   TK_BEGIN Series TK_END {}
+                ;
+
+Statement       :   AsignStatement { tmpvar_reset(); }
+                |   IOStatement    {}
+                |   IfStatement    { fix_jmp_addr($1.tc, NXQ); fix_jmp_addr($1.fc, NXQ); }
+                |   WhileStatement {}
+                |   ComStatement   {}
+                ;
+
+StatementList   :   Statement {}
+                |   StatementList ';' Statement {}
+                ;
+
+Rop             :   '<'   { $$ = '<';   }
+                |   '>'   { $$ = '>';   }
+                |   '='   { $$ = '=';   }
+                |   TK_LE { $$ = TK_LE; }
+                |   TK_GE { $$ = TK_GE; }
+                |   TK_NE { $$ = TK_NE; }
                 ;
 
 BExpr           :   AExpr Rop AExpr
@@ -354,15 +387,6 @@ BExpr           :   AExpr Rop AExpr
                         }
                     }
                 ;
-
-Rop             :   '<'   { $$ = '<';   }
-                |   '>'   { $$ = '>';   }
-                |   '='   { $$ = '=';   }
-                |   TK_LE { $$ = TK_LE; }
-                |   TK_GE { $$ = TK_GE; }
-                |   TK_NE { $$ = TK_NE; }
-                ;
-
 %%
 /* 程序部分 */
 static void yyerror(char *err)
@@ -544,7 +568,8 @@ static void gen_var_list(FILE *fp)
 
 static char* g_optrstr[] =
 {
-    "STOP", "I+  ", "I-  ", "I*  ", "I/  ", "R+  ", "R-  ", "R*  ", "R/  ", "ITR ", "RTI ", "I=  ", "R=  ", "M=  ", "JMP ",
+    "STOP", "I+  ", "I-  ", "I*  ", "I/  ", "R+  ", "R-  ", "R*  ", "R/  ", "ITR ", "RTI ", "I=  ", "R=  ", "M=  ",
+    "IPRT", "RPRT", "IIPT", "RIPT", "JMP ",
     "IJL ", "IJLE", "IJE ", "IJG ", "IJGE", "IJNE", "IJL ", "IJLE", "IJE ", "IJG ", "IJGE", "IJNE",
     "RJL ", "RJLE", "RJE ", "RJG ", "RJGE", "RJNE", "RJL ", "RJLE", "RJE ", "RJG ", "RJGE", "RJNE",
 };
