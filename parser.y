@@ -34,9 +34,9 @@ typedef struct {
 
 typedef struct {
     uint8_t optr;    /* 操作符  */
-    int     result;  /* 操作结果*/
-    int     opnd1;   /* 操作数1 */
-    int     opnd2;   /* 操作数2 */
+    int32_t result;  /* 操作结果*/
+    int32_t opnd1;   /* 操作数1 */
+    int32_t opnd2;   /* 操作数2 */
 } QUATER;
 
 /* 内部全局变量定义 */
@@ -114,20 +114,21 @@ static void handle_aexpr(AttrAExpr *result, AttrAExpr *expr1, AttrAExpr *expr2, 
             int32_t vidx;
         } v;
     } AttrAExpr;
+
+    typedef struct {
+        int loop;
+        int tc;
+        int fc;
+    } AttrBExpr;
 }
 
 %union
 {
     AttrAExpr AttrAExpr;
+    AttrBExpr AttrBExpr;
     char      AttrVar[MAX_VNAME_SIZE];
     int       AttrVChain;
     int       AttrRop;
-
-    struct {
-        int loop;
-        int tc;
-        int fc;
-    } AttrBExpr;
 }
 
 %type <AttrVar>     Variable
@@ -232,9 +233,9 @@ Const           :   TK_INTNUM
 
 Factor          :   Variable
                     {
+                        $$.v.vidx = lookup_var($1);
                         $$.isvar  = 1;
                         $$.type   = g_vlist[$$.v.vidx].type;
-                        $$.v.vidx = lookup_var($1);
                     }
                 |   Const         { $$ = $1; }
                 |   '(' AExpr ')' { $$ = $2; }
