@@ -101,7 +101,8 @@ static void tmpvar_push (void);
 static void tmpvar_reset(void);
 static int  GEN(uint8_t optr, int result, int opnd1, int opnd2);
 static void fix_jmp_addr(int jmp, int addr);
-static void handle_aexpr(AttrAExpr *result, AttrAExpr *expr1, AttrAExpr *expr2, int op);
+static void handle_aexpr(AttrAExpr *result, AttrAExpr *expr1, int op, AttrAExpr *expr2);
+static int  handle_bexpr(AttrAExpr *expr1, int op, AttrAExpr *expr2);
 %}
 
 /* 文法开始符号 */
@@ -246,13 +247,13 @@ Factor          :   Variable
                 |   '(' AExpr ')' { $$ = $2; }
 
 Term            :   Factor { $$ = $1; }
-                |   Term '*' Factor { handle_aexpr(&$$, &$1, &$3, '*'); }
-                |   Term '/' Factor { handle_aexpr(&$$, &$1, &$3, '/'); }
+                |   Term '*' Factor { handle_aexpr(&$$, &$1, '*', &$3); }
+                |   Term '/' Factor { handle_aexpr(&$$, &$1, '/', &$3); }
                 ;
 
 AExpr           :   Term   { $$ = $1; }
-                |   AExpr '+' Term  { handle_aexpr(&$$, &$1, &$3, '+'); }
-                |   AExpr '-' Term  { handle_aexpr(&$$, &$1, &$3, '-'); }
+                |   AExpr '+' Term  { handle_aexpr(&$$, &$1, '+', &$3); }
+                |   AExpr '-' Term  { handle_aexpr(&$$, &$1, '-', &$3); }
                 ;
 
 AsignStatement  :   Variable TK_ASIGN AExpr
@@ -359,33 +360,7 @@ Rop             :   '<'   { $$ = '<';   }
                 |   TK_NE { $$ = TK_NE; }
                 ;
 
-BExpr           :   AExpr Rop AExpr
-                    {
-                        int ioptr = 0, roptr = 0;
-                        switch ($2) {
-                        case '<'  : ioptr = OP_IJGE; roptr = OP_RJGE; break;
-                        case '>'  : ioptr = OP_IJLE; roptr = OP_RJLE; break;
-                        case '='  : ioptr = OP_IJNE; roptr = OP_RJNE; break;
-                        case TK_LE: ioptr = OP_IJG ; roptr = OP_RJG ; break;
-                        case TK_GE: ioptr = OP_IJL ; roptr = OP_RJL ; break;
-                        case TK_NE: ioptr = OP_IJE ; roptr = OP_RJE ; break;
-                        }
-                        if ($1.type == $3.type) {
-                            $$.fc = NXQ + 0;
-                            GEN($1.type == AEXPRT_INTEGER ? ioptr : roptr, 0, $1.v.vidx, $3.v.vidx);
-                        } else {
-                            int var = tmpvar_pop(AEXPRT_REAL);
-                            $$.fc = NXQ + 1;
-                            if ($1.type == AEXPRT_INTEGER) {
-                                GEN(OP_ITR, var, $1.v.vidx, 0);
-                                GEN(roptr, 0, var, $3.v.vidx);
-                            } else if ($3.type == AEXPRT_INTEGER) {
-                                GEN(OP_ITR, var, $3.v.vidx, 0);
-                                GEN(roptr, 0, $1.v.vidx, var);
-                            }
-                            if (var) tmpvar_push();
-                        }
-                    }
+BExpr           :   AExpr Rop AExpr { $$.fc = handle_bexpr(&$1, $2, &$3); }
                 ;
 %%
 /* 程序部分 */
@@ -456,7 +431,7 @@ static void fix_jmp_addr(int jmp, int addr)
     if (jmp && !g_qlist[jmp].result) g_qlist[jmp].result = addr;
 }
 
-static void handle_aexpr(AttrAExpr *result, AttrAExpr *expr1, AttrAExpr *expr2, int op)
+static void handle_aexpr(AttrAExpr *result, AttrAExpr *expr1, int op, AttrAExpr *expr2)
 {
     int iopcode = 0, ropcode = 0;
     if (!expr1->isvar && !expr2->isvar) {
@@ -534,6 +509,54 @@ static void handle_aexpr(AttrAExpr *result, AttrAExpr *expr1, AttrAExpr *expr2, 
             }
         }
     }
+}
+
+static int handle_bexpr(AttrAExpr *expr1, int op, AttrAExpr *expr2)
+{
+    int ioptr = 0, roptr = 0, t1 = 0, t2 = 0, ret;
+    AttrAExpr e1, e2;
+    switch (op) {
+    case '<'  : ioptr = OP_IJGE; roptr = OP_RJGE; break;
+    case '>'  : ioptr = OP_IJLE; roptr = OP_RJLE; break;
+    case '='  : ioptr = OP_IJNE; roptr = OP_RJNE; break;
+    case TK_LE: ioptr = OP_IJG ; roptr = OP_RJG ; break;
+    case TK_GE: ioptr = OP_IJL ; roptr = OP_RJL ; break;
+    case TK_NE: ioptr = OP_IJE ; roptr = OP_RJE ; break;
+    }
+    if (!expr1->isvar) {
+        t1 = tmpvar_pop(expr1->type);
+        GEN(expr1->type == AEXPRT_INTEGER ? OP_ASIGNI : OP_ASIGNR, t1, expr1->v.ival, 0);
+        e1.isvar = 1;
+        e1.type  = expr1->type;
+        e1.v.vidx= t1;
+        expr1 = &e1;
+    }
+    if (!expr2->isvar) {
+        t2 = tmpvar_pop(expr2->type);
+        GEN(expr2->type == AEXPRT_INTEGER ? OP_ASIGNI : OP_ASIGNR, t2, expr2->v.ival, 0);
+        e2.isvar = 1;
+        e2.type  = expr2->type;
+        e2.v.vidx= t2;
+        expr2 = &e2;
+    }
+    if (expr1->type == expr2->type) {
+        ret = NXQ + 0;
+        GEN(expr1->type == AEXPRT_INTEGER ? ioptr : roptr, 0, expr1->v.vidx, expr2->v.vidx);
+    } else {
+        int var = tmpvar_pop(AEXPRT_REAL);
+        ret = NXQ + 1;
+        if (expr1->type == AEXPRT_INTEGER) {
+            GEN(OP_ITR, var, expr1->v.vidx, 0);
+            GEN(roptr, 0, var, expr2->v.vidx);
+        } else if (expr2->type == AEXPRT_INTEGER) {
+            GEN(OP_ITR, var, expr2->v.vidx, 0);
+            GEN(roptr, 0, expr1->v.vidx, var);
+        }
+        if (var) tmpvar_push();
+    }
+    if (t2) tmpvar_push();
+    if (t1) tmpvar_push();
+    return ret;
 }
 
 static void gen_name_list(FILE *fp)
