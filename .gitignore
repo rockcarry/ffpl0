@@ -2,7 +2,6 @@
 /parser.tab.c
 /parser.tab.h
 /lex.yy.c
-/scanner.exe
-/compiler.exe
+*.exe
 a.out
 

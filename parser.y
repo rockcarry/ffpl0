@@ -538,8 +538,7 @@ static void handle_aexpr(AttrAExpr *result, AttrAExpr *expr1, AttrAExpr *expr2, 
 
 static void gen_name_list(FILE *fp)
 {
-    char *type = NULL;
-    int   i;
+    int i;
     fprintf(fp, "·ûºÅ±í\r\n");
     fprintf(fp, " no. name                \r\n");
     fprintf(fp, "-------------------------\r\n");
@@ -610,6 +609,14 @@ static void gen_quater_list(FILE *fp)
     fprintf(fp, "\r\n\r\n");
 }
 
+static void gen_quater_bin(FILE *fp)
+{
+    int i;
+    for (i=0; i<NXQ; i++) {
+        fwrite(&g_qlist[i], sizeof(g_qlist[i]), 1, fp);
+    }
+}
+
 #ifdef _TEST_COMPILER_
 int main(int argc, char *argv[])
 {
@@ -637,14 +644,14 @@ int main(int argc, char *argv[])
     /* ¿ªÊ¼±àÒë */
     yyparse();
 
-    gen_name_list  (fpout);
-    gen_var_list   (fpout);
-    gen_quater_list(fpout);
+    gen_name_list  (stdout);
+    gen_var_list   (stdout);
+    gen_quater_list(stdout);
+    gen_quater_bin (fpout );
 
     fclose(fpout);
     fclose(yyin );
 }
 #endif
-
 
 
